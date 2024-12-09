@@ -1,0 +1,170 @@
+import sqlite3
+import bcrypt
+from cryptography.fernet import Fernet
+from getpass import getpass
+import os
+
+
+# Check if the private.key file exists, generate if not
+if not os.path.exists("private.key"):
+    with open("private.key", "wb") as key_file:
+        key_file.write(Fernet.generate_key())
+
+
+# Generate a key once (run only once)
+# with open("private.key", "wb") as key_file:
+#     key_file.write(Fernet.generate_key())
+
+# Load the encryption key
+with open("private.key", "rb") as key_file:
+    private_key = key_file.read()
+fernet = Fernet(private_key)
+
+# Connect to SQLite
+db = sqlite3.connect("secure_access_control.db")
+cursor = db.cursor()
+
+# Phase 1: Initialize Database
+def initialize_db():
+    cursor.execute('''CREATE TABLE IF NOT EXISTS users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        username TEXT UNIQUE NOT NULL,
+        password TEXT NOT NULL,
+        role TEXT NOT NULL
+    )''')
+    cursor.execute('''CREATE TABLE IF NOT EXISTS logs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        username TEXT NOT NULL,
+        action TEXT NOT NULL,
+        timestamp TEXT NOT NULL
+    )''')
+    cursor.execute('''CREATE TABLE IF NOT EXISTS resources (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        resource_name TEXT NOT NULL,
+        restricted_role TEXT
+    )''')
+
+    # Add a default admin user
+    username = fernet.encrypt("admin".encode())
+    hashed_password = bcrypt.hashpw("admin123".encode(), bcrypt.gensalt())
+    role = fernet.encrypt("admin".encode())
+    cursor.execute('''INSERT OR IGNORE INTO users (username, password, role)
+                      VALUES (?, ?, ?)''', (username, hashed_password, role))
+
+    # Add example resources
+    cursor.execute('''INSERT OR IGNORE INTO resources (resource_name, restricted_role)
+                      VALUES (?, ?), (?, ?), (?, ?)''', 
+                   (fernet.encrypt("Confidential Report".encode()), fernet.encrypt("admin".encode()),
+                    fernet.encrypt("User Settings".encode()), fernet.encrypt("manager".encode()),
+                    fernet.encrypt("Public Dashboard".encode()), None))
+    db.commit()
+
+# Phase 2: Authentication
+def authenticate():
+    print("\n--- User Login ---")
+    username = input("Username: ")
+    password = getpass("Password: ")
+    
+    # Encrypt username for comparison
+    encrypted_username = fernet.encrypt(username.encode())
+    cursor.execute("SELECT * FROM users WHERE username=?", (encrypted_username,))
+    user = cursor.fetchone()
+
+    if user and bcrypt.checkpw(password.encode(), user[2]):
+        print(f"Welcome {username}! Role: {fernet.decrypt(user[3]).decode()}")
+        log_action(username, "Logged In")
+        return {"username": encrypted_username, "role": user[3]}
+    else:
+        print("Invalid credentials!")
+        return None
+
+# Phase 3: Authorization
+def authorize(role, resource):
+    cursor.execute("SELECT restricted_role FROM resources WHERE resource_name=?", (resource,))
+    result = cursor.fetchone()
+    if result:
+        restricted_role = fernet.decrypt(result[0]).decode() if result[0] else None
+        if restricted_role and fernet.decrypt(role).decode() != restricted_role:
+            print(f"Access Denied! Only '{restricted_role}' role can access this resource.")
+            return False
+        else:
+            print(f"Access Granted to '{fernet.decrypt(resource).decode()}'!")
+            return True
+    else:
+        print("Resource not found.")
+        return False
+
+# Phase 4: Log Actions
+def log_action(username, action):
+    encrypted_action = fernet.encrypt(action.encode())
+    encrypted_timestamp = fernet.encrypt("2024-12-09 03:20:08".encode())
+    cursor.execute("INSERT INTO logs (username, action, timestamp) VALUES (?, ?, ?)",
+                   (fernet.encrypt(username.encode()), encrypted_action, encrypted_timestamp))
+    db.commit()
+
+# Admin Privileges
+def view_logs():
+    private_key = getpass("Enter private key to view logs: ").encode()
+    if private_key == fernet._signing_key:
+        cursor.execute("SELECT * FROM logs")
+        logs = cursor.fetchall()
+        for log in logs:
+            print(f"ID: {log[0]}, User: {fernet.decrypt(log[1]).decode()}, "
+                  f"Action: {fernet.decrypt(log[2]).decode()}, "
+                  f"Timestamp: {fernet.decrypt(log[3]).decode()}")
+    else:
+        print("Invalid private key!")
+
+def add_user():
+    username = input("New Username: ")
+    password = getpass("New Password: ")
+    role = input("Role (admin/manager/user): ")
+    
+    encrypted_username = fernet.encrypt(username.encode())
+    hashed_password = bcrypt.hashpw(password.encode(), bcrypt.gensalt())
+    encrypted_role = fernet.encrypt(role.encode())
+    
+    cursor.execute("INSERT INTO users (username, password, role) VALUES (?, ?, ?)",
+                   (encrypted_username, hashed_password, encrypted_role))
+    db.commit()
+    print(f"User '{username}' added successfully!")
+
+# Resource Access
+def access_resources(user):
+    print("\n--- Access Resources ---")
+    cursor.execute("SELECT resource_name FROM resources")
+    resources = cursor.fetchall()
+    for i, resource in enumerate(resources, start=1):
+        print(f"{i}. {fernet.decrypt(resource[0]).decode()}")
+    choice = int(input("Select a resource (number): ")) - 1
+    if 0 <= choice < len(resources):
+        resource_name = resources[choice][0]
+        if authorize(user['role'], resource_name):
+            log_action(user['username'], f"Accessed resource '{fernet.decrypt(resource_name).decode()}'")
+    else:
+        print("Invalid selection!")
+
+# Main Menu
+def main():
+    initialize_db()
+    user = authenticate()
+    if user:
+        while True:
+            print("\n--- Main Menu ---")
+            print("1. Access Resources")
+            print("2. View Logs (Admin Only)")
+            print("3. Logout")
+            choice = input("Choose an option: ")
+            if choice == "1":
+                access_resources(user)
+            elif choice == "2" and fernet.decrypt(user['role']).decode() == "admin":
+                view_logs()
+            elif choice == "3":
+                log_action(fernet.decrypt(user['username']).decode(), "Logged Out")
+                print("Logged out. Goodbye!")
+                break
+            else:
+                print("Invalid option!")
+
+if __name__ == "__main__":
+    main()
