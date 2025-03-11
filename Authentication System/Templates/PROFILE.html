@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User Profile | AWK Authentication System</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+</head>
+<body>
+    <div class="container fade-in">
+        <div class="logo">
+            <h1>AW<span>K</span></h1>
+            <p>Authentication System</p>
+        </div>
+
+        <div class="theme-switch-wrapper">
+            <label class="theme-switch" for="checkbox">
+                <input type="checkbox" id="checkbox" />
+                <div class="slider"></div>
+            </label>
+            <div class="slider-text">Dark Mode</div>
+        </div>
+
+        <div class="dashboard">
+            <h2><i class="fas fa-user"></i> User Profile</h2>
+            
+            <div class="profile-info">
+                <div style="text-align: center; margin-bottom: 20px;">
+                    <i class="fas fa-user-circle" style="font-size: 64px; color: var(--secondary-color);"></i>
+                </div>
+                
+                <div style="display: flex; flex-direction: column; gap: 10px;">
+                    <p><strong><i class="fas fa-user"></i> Username:</strong> {{ user.username }}</p>
+                    <p><strong><i class="fas fa-user-tag"></i> Role:</strong> {{ user.role | capitalize }}</p>
+                    <p><strong><i class="fas fa-calendar-alt"></i> Account Created:</strong> <span id="createdAt">2025-03-10</span></p>
+                </div>
+            </div>
+            
+            <div class="action-links">
+                <a href="{{ url_for('dashboard') }}" class="btn">
+                    <i class="fas fa-tachometer-alt"></i> Back to Dashboard
+                </a>
+                <a href="{{ url_for('logout') }}" class="btn btn-danger">
+                    <i class="fas fa-sign-out-alt"></i> Logout
+                </a>
+            </div>
+        </div>
+
+        <div class="footer">
+            <p>&copy; AWK Authentication System. All rights reserved.</p>
+        </div>
+    </div

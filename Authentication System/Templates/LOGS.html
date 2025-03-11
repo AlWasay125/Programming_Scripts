@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Activity Logs | AWK Authentication System</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+</head>
+<body>
+    <div class="container fade-in">
+        <div class="logo">
+            <h1>AW<span>K</span></h1>
+            <p>Authentication System</p>
+        </div>
+
+        <div class="theme-switch-wrapper">
+            <label class="theme-switch" for="checkbox">
+                <input type="checkbox" id="checkbox" />
+                <div class="slider"></div>
+            </label>
+            <div class="slider-text">Dark Mode</div>
+        </div>
+
+        <div class="dashboard">
+            <h2><i class="fas fa-history"></i> Activity Logs</h2>
+            
+            <div style="overflow-x: auto;">
+                <table>
+                    <thead>
+                        <tr>
+                            <th><i class="fas fa-user"></i> Username</th>
+                            <th><i class="fas fa-tasks"></i> Action</th>
+                            <th><i class="fas fa-clock"></i> Timestamp</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for log, username in logs %}
+                        <tr>
+                            <td>{{ username }}</td>
+                            <td>
+                                {% if log.action == 'Logged In' %}
+                                    <span style="color: var(--success-color);"><i class="fas fa-sign-in-alt"></i> {{ log.action }}</span>
+                                {% elif log.action == 'Logged Out' %}
+                                    <span style="color: var(--accent-color);"><i class="fas fa-sign-out-alt"></i> {{ log.action }}</span>
+                                {% elif log.action == 'Account Created' %}
+                                    <span style="color: var(--secondary-color);"><i class="fas fa-user-plus"></i> {{ log.action }}</span>
+                                {% else %}
+                                    <i class="fas fa-info-circle"></i> {{ log.action }}
+                                {% endif %}
+                            </td>
+                            <td>{{ log.timestamp.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            
+            <div class="action-links" style="margin-top: 20px;">
+                <a href="{{ url_for('dashboard') }}" class="btn">
+                    <i class="fas fa-arrow-left"></i> Back to Dashboard
+                </a>
+            </div>
+        </div>
+
+        <div class="footer">
+            <p>&copy; AWK Authentication System. All rights reserved.</p>
+        </div>
+    </div>
+
+    <script>
+        // Dark mode toggle
+        const checkbox = document.getElementById('checkbox');
+        
+        if (localStorage.getItem('darkMode') === 'true') {
+            document.body.classList.add('dark-mode');
+            checkbox.checked = true;
+        }
+        
+        checkbox.addEventListener('change', function() {
+            if (this.checked) {
+                document.body.classList.add('dark-mode');
+                localStorage.setItem('darkMode', 'true');
+            } else {
+                document.body.classList.remove('dark-mode');
+                localStorage.setItem('darkMode', 'false');
+            }
+        });
+    </script>
+</body>
+</html>
